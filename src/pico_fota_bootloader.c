@@ -27,6 +27,7 @@
 #include <hardware/flash.h>
 #include <hardware/sync.h>
 #include <hardware/watchdog.h>
+#include "pico/flash.h"
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
 #    include <mbedtls/aes.h>
