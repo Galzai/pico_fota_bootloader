@@ -86,7 +86,7 @@ target_link_libraries(pico_fota_bootloader_lib PUBLIC
 target_link_libraries(pico_fota_bootloader_lib PRIVATE
                       pico_mbedtls)
 target_link_options(pico_fota_bootloader_lib PRIVATE
-                    "-T${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
+                    "-T${CMAKE_BINARY_DIR}/linker_definitions.ld")
 
 if (PFB_WITH_IMAGE_ENCRYPTION)
     target_compile_definitions(pico_fota_bootloader_lib PRIVATE PFB_WITH_IMAGE_ENCRYPTION)
@@ -102,10 +102,12 @@ set(BOOTLOADER_DIR_GLOBAL ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
 # Manage application binary
 ########################################
 function(pfb_compile_with_bootloader Target)
-    if(${PICO_PLATFORM} STREQUAL "rp2350-arm-s")
-        set(CPU "2350")
-    else()
+    if (PICO_PLATFORM STREQUAL "rp2040")
         set(CPU "2040")
+        add_compile_definitions(RP2040=1)
+    else()
+        set(CPU "2350")
+        add_compile_definitions(RP2350=1)
     endif()
 
     target_link_options(${Target} PRIVATE "-L${BOOTLOADER_DIR_GLOBAL}/linker_common" "-L${CMAKE_CURRENT_BINARY_DIR}")
