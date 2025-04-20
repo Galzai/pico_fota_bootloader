@@ -91,9 +91,15 @@ overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
 }
 
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
-    uint32_t saved_interrupts = save_and_disable_interrupts();
-    overwrite_4_bytes_in_flash_isr_unsafe(dest_addr - XIP_BASE, data);
-    restore_interrupts(saved_interrupts);
+    void* params[2];
+    
+    params[0] = (void*)dest_addr;
+    params[1] = (void*)data;
+    flash_safe_execute([](void* params) {
+        uint32_t dest_addr = (uint32_t)params[0];
+        uint32_t data = (uint32_t)params[1];
+        overwrite_4_bytes_in_flash_isr_unsafe(dest_addr - XIP_BASE, data);
+    }, params, UINT32_MAX);
 }
 
 static void mark_download_slot(uint32_t magic) {
@@ -159,6 +165,7 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
                    > (size_t) PFB_ADDR_AS_U32(__FLASH_SWAP_SPACE_LENGTH)) {
         return 1;
     }
+    void *params[2];
 
     for (int i = 0; i < len_bytes / PFB_ALIGN_SIZE; i++) {
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
@@ -177,9 +184,17 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
 #else  // PFB_WITH_IMAGE_ENCRYPTION
                 src + i * PFB_ALIGN_SIZE;
 #endif // PFB_WITH_IMAGE_ENCRYPTION
-        uint32_t saved_interrupts = save_and_disable_interrupts();
-        flash_range_program(dest_address, src_address, PFB_ALIGN_SIZE);
-        restore_interrupts(saved_interrupts);
+        
+        params[0] = (void *) dest_address;
+        params[1] = (void *) src_address;
+
+        flash_safe_execute([](void* params) {
+            uint32_t dest_address = (uint32_t)params[0];
+            uint8_t* src_address = (uint8_t*)params[1];
+
+            flash_range_program(dest_address, src_address, PFB_ALIGN_SIZE);
+        }, params, UINT32_MAX);
+       
     }
     return 0;
 }
@@ -190,11 +205,16 @@ int pfb_initialize_download_slot(void) {
             PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_DOWNLOAD_SLOT_START);
     assert(erase_len % FLASH_SECTOR_SIZE == 0);
 
+    void* params[2];
+    params[0] = (void*)erase_address_with_xip_offset;
+    params[1] = (void*)erase_len;
     pfb_firmware_commit();
 
-    uint32_t saved_interrupts = save_and_disable_interrupts();
-    flash_range_erase(erase_address_with_xip_offset, erase_len);
-    restore_interrupts(saved_interrupts);
+    flash_safe_execute([](void* params) {
+        uint32_t erase_address_with_xip_offset = (uint32_t)params[0];
+        uint32_t erase_len = (uint32_t)params[1];
+        flash_range_erase(erase_address_with_xip_offset, erase_len);
+    }, params, UINT32_MAX);
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
     mbedtls_aes_free(&g_aes_ctx);
