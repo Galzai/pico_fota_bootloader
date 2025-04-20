@@ -21,7 +21,7 @@
 #
 
 from argparse import ArgumentParser
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 import os
 
 
