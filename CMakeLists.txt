@@ -21,10 +21,12 @@
 
 cmake_minimum_required(VERSION 3.13)
 
-if(${PICO_PLATFORM} STREQUAL "rp2350-arm-s")
-    set(CPU "2350")
-else()
+if (PICO_PLATFORM STREQUAL "rp2040")
     set(CPU "2040")
+    add_compile_definitions(RP2040=1)
+else()
+    set(CPU "2350")
+    add_compile_definitions(RP2350=1)
 endif()
 
 ########################################

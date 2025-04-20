@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#if PICO_PLATFORM == rp2350-arm-s
+#ifdef RP2350
 #include <RP2350.h>
 #else
 #include <RP2040.h>
