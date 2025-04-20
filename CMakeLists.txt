@@ -21,12 +21,10 @@
 
 cmake_minimum_required(VERSION 3.13)
 
-if (PICO_PLATFORM STREQUAL "rp2040")
+if(${PICO_PLATFORM} STREQUAL "rp2040")
     set(CPU "2040")
-    add_compile_definitions(RP2040=1)
 else()
     set(CPU "2350")
-    add_compile_definitions(RP2350=1)
 endif()
 
 ########################################
@@ -45,35 +43,11 @@ endif()
 ########################################
 # Build linker definitions
 ########################################
-# Read the linker definitions input file
-file(READ ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in LINKER_DEFS_CONTENT)
-
-# Write to a temporary file for preprocessing
-file(WRITE ${CMAKE_BINARY_DIR}/linker_definitions_temp.in "${LINKER_DEFS_CONTENT}")
-
-# Preprocess the linker definitions with proper defines
+# PICO_FLASH_SIZE_BYTES
 execute_process(
-    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${CMAKE_BINARY_DIR}/linker_definitions.ld ${CMAKE_BINARY_DIR}/linker_definitions_temp.in
-    RESULT_VARIABLE PREPROCESS_RESULT
-)
-
-# Verify the preprocessing was successful
-if(NOT ${PREPROCESS_RESULT} EQUAL 0)
-    message(FATAL_ERROR "Failed to preprocess linker definitions file")
-endif()
-
-# Check if linker_definitions.ld was generated and is not empty
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/linker_definitions.ld")
-    message(FATAL_ERROR "linker_definitions.ld was not created")
-else()
-    file(SIZE "${CMAKE_BINARY_DIR}/linker_definitions.ld" LINKER_DEFS_SIZE)
-    if(LINKER_DEFS_SIZE EQUAL 0)
-        message(FATAL_ERROR "linker_definitions.ld is empty")
-    else()
-        message(STATUS "Successfully generated linker_definitions.ld (${LINKER_DEFS_SIZE} bytes)")
-    endif()
-endif()
-
+    COMMAND cat ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
+    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${CMAKE_BINARY_DIR}/linker_definitions.ld -
+    )
 ########################################
 # Check and set AES key
 ########################################
@@ -110,7 +84,7 @@ target_link_libraries(pico_fota_bootloader_lib PUBLIC
 target_link_libraries(pico_fota_bootloader_lib PRIVATE
                       pico_mbedtls)
 target_link_options(pico_fota_bootloader_lib PRIVATE
-                    "-T${CMAKE_BINARY_DIR}/linker_definitions.ld")
+                    "-T${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
 
 if (PFB_WITH_IMAGE_ENCRYPTION)
     target_compile_definitions(pico_fota_bootloader_lib PRIVATE PFB_WITH_IMAGE_ENCRYPTION)
@@ -126,12 +100,10 @@ set(BOOTLOADER_DIR_GLOBAL ${CMAKE_CURRENT_SOURCE_DIR} PARENT_SCOPE)
 # Manage application binary
 ########################################
 function(pfb_compile_with_bootloader Target)
-    if (PICO_PLATFORM STREQUAL "rp2040")
+    if(${PICO_PLATFORM} STREQUAL "rp2040")
         set(CPU "2040")
-        add_compile_definitions(RP2040=1)
     else()
         set(CPU "2350")
-        add_compile_definitions(RP2350=1)
     endif()
 
     target_link_options(${Target} PRIVATE "-L${BOOTLOADER_DIR_GLOBAL}/linker_common" "-L${CMAKE_CURRENT_BINARY_DIR}")
@@ -209,4 +181,3 @@ if (PFB_WITH_BOOTLOADER_LOGS)
         pico_enable_stdio_uart(pico_fota_bootloader 0)
     endif ()
 endif ()
-
