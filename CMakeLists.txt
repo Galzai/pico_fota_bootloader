@@ -45,11 +45,35 @@ endif()
 ########################################
 # Build linker definitions
 ########################################
-# PICO_FLASH_SIZE_BYTES
+# Read the linker definitions input file
+file(READ ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in LINKER_DEFS_CONTENT)
+
+# Write to a temporary file for preprocessing
+file(WRITE ${CMAKE_BINARY_DIR}/linker_definitions_temp.in "${LINKER_DEFS_CONTENT}")
+
+# Preprocess the linker definitions with proper defines
 execute_process(
-    COMMAND cat ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
-    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${CMAKE_BINARY_DIR}/linker_definitions.ld -
-    )
+    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${CMAKE_BINARY_DIR}/linker_definitions.ld ${CMAKE_BINARY_DIR}/linker_definitions_temp.in
+    RESULT_VARIABLE PREPROCESS_RESULT
+)
+
+# Verify the preprocessing was successful
+if(NOT ${PREPROCESS_RESULT} EQUAL 0)
+    message(FATAL_ERROR "Failed to preprocess linker definitions file")
+endif()
+
+# Check if linker_definitions.ld was generated and is not empty
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/linker_definitions.ld")
+    message(FATAL_ERROR "linker_definitions.ld was not created")
+else()
+    file(SIZE "${CMAKE_BINARY_DIR}/linker_definitions.ld" LINKER_DEFS_SIZE)
+    if(LINKER_DEFS_SIZE EQUAL 0)
+        message(FATAL_ERROR "linker_definitions.ld is empty")
+    else()
+        message(STATUS "Successfully generated linker_definitions.ld (${LINKER_DEFS_SIZE} bytes)")
+    endif()
+endif()
+
 ########################################
 # Check and set AES key
 ########################################
