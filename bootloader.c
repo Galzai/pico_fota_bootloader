@@ -57,6 +57,9 @@ bool _pfb_should_rollback(void);
 void _pfb_mark_should_rollback(void);
 bool _pfb_has_firmware_to_swap(void);
 
+// Forward declaration of helper function to replace lambda
+static void swap_images_helper(void* param_data);
+
 static void swap_images(void) {
     uint8_t swap_buff_from_download_slot[FLASH_SECTOR_SIZE];
     uint8_t swap_buff_from_application_slot[FLASH_SECTOR_SIZE];
@@ -69,39 +72,40 @@ static void swap_images(void) {
 
     for (uint32_t i = 0; i < SWAP_ITERATIONS; i++) {
         params[2] = (void*)i;
-
-        flash_safe_execute([](void* params) {
-            void** args = (void**)params;
-            uint8_t* swap_buff_from_download_slot = (uint8_t*)args[0];
-            uint8_t* swap_buff_from_application_slot = (uint8_t*)args[1];
-            size_t i = (uint32_t)args[2];
-
-        memcpy(swap_buff_from_download_slot,
-               (void *) (PFB_ADDR_AS_U32(__FLASH_DOWNLOAD_SLOT_START)
-                         + i * FLASH_SECTOR_SIZE),
-               FLASH_SECTOR_SIZE);
-        memcpy(swap_buff_from_application_slot,
-               (void *) (PFB_ADDR_AS_U32(__FLASH_APP_START)
-                         + i * FLASH_SECTOR_SIZE),
-               FLASH_SECTOR_SIZE);
-        flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_APP_START)
-                                  + i * FLASH_SECTOR_SIZE,
-                          FLASH_SECTOR_SIZE);
-        flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(
-                                  __FLASH_DOWNLOAD_SLOT_START)
-                                  + i * FLASH_SECTOR_SIZE,
-                          FLASH_SECTOR_SIZE);
-        flash_range_program(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_APP_START)
-                                    + i * FLASH_SECTOR_SIZE,
-                            swap_buff_from_download_slot,
-                            FLASH_SECTOR_SIZE);
-        flash_range_program(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(
-                                    __FLASH_DOWNLOAD_SLOT_START)
-                                    + i * FLASH_SECTOR_SIZE,
-                            swap_buff_from_application_slot,
-                            FLASH_SECTOR_SIZE);
-        }, params, UINT32_MAX);
+        flash_safe_execute(swap_images_helper, params, UINT32_MAX);
     }
+}
+
+static void swap_images_helper(void* param_data) {
+    void** args = (void**)param_data;
+    uint8_t* swap_buff_from_download_slot = (uint8_t*)args[0];
+    uint8_t* swap_buff_from_application_slot = (uint8_t*)args[1];
+    size_t i = (uint32_t)args[2];
+
+    memcpy(swap_buff_from_download_slot,
+           (void *) (PFB_ADDR_AS_U32(__FLASH_DOWNLOAD_SLOT_START)
+                     + i * FLASH_SECTOR_SIZE),
+           FLASH_SECTOR_SIZE);
+    memcpy(swap_buff_from_application_slot,
+           (void *) (PFB_ADDR_AS_U32(__FLASH_APP_START)
+                     + i * FLASH_SECTOR_SIZE),
+           FLASH_SECTOR_SIZE);
+    flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_APP_START)
+                              + i * FLASH_SECTOR_SIZE,
+                      FLASH_SECTOR_SIZE);
+    flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(
+                              __FLASH_DOWNLOAD_SLOT_START)
+                              + i * FLASH_SECTOR_SIZE,
+                      FLASH_SECTOR_SIZE);
+    flash_range_program(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_APP_START)
+                                + i * FLASH_SECTOR_SIZE,
+                        swap_buff_from_download_slot,
+                        FLASH_SECTOR_SIZE);
+    flash_range_program(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(
+                                __FLASH_DOWNLOAD_SLOT_START)
+                                + i * FLASH_SECTOR_SIZE,
+                        swap_buff_from_application_slot,
+                        FLASH_SECTOR_SIZE);
 }
 
 // Added a _ prefix to avoid name collision with the pico-sdk 2.1.1

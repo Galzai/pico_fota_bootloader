@@ -29,6 +29,11 @@
 #include <hardware/watchdog.h>
 #include "pico/flash.h"
 
+// Forward declarations of helper functions to replace lambdas
+static void overwrite_4_bytes_in_flash_helper(void* param_data);
+static void flash_program_helper(void* param_data);
+static void flash_erase_helper(void* param_data);
+
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
 #    include <mbedtls/aes.h>
 #endif // PFB_WITH_IMAGE_ENCRYPTION
@@ -91,16 +96,19 @@ overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
                         FLASH_SECTOR_SIZE);
 }
 
+static void overwrite_4_bytes_in_flash_helper(void* param_data) {
+    void** params = (void**)param_data;
+    uint32_t dest_addr = (uint32_t)params[0];
+    uint32_t data = (uint32_t)params[1];
+    overwrite_4_bytes_in_flash_isr_unsafe(dest_addr - XIP_BASE, data);
+}
+
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
     void* params[2];
     
     params[0] = (void*)dest_addr;
     params[1] = (void*)data;
-    flash_safe_execute([](void* params) {
-        uint32_t dest_addr = (uint32_t)params[0];
-        uint32_t data = (uint32_t)params[1];
-        overwrite_4_bytes_in_flash_isr_unsafe(dest_addr - XIP_BASE, data);
-    }, params, UINT32_MAX);
+    flash_safe_execute(overwrite_4_bytes_in_flash_helper, params, UINT32_MAX);
 }
 
 static void mark_download_slot(uint32_t magic) {
@@ -158,6 +166,14 @@ bool pfb_is_after_firmware_update(void) {
     return (__FLASH_INFO_IS_FIRMWARE_SWAPPED == PFB_HAS_NEW_FIRMWARE_MAGIC);
 }
 
+static void flash_program_helper(void* param_data) {
+    void** params = (void**)param_data;
+    uint32_t dest_address = (uint32_t)params[0];
+    uint8_t* src_address = (uint8_t*)params[1];
+
+    flash_range_program(dest_address, src_address, PFB_ALIGN_SIZE);
+}
+
 int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
                                          size_t offset_bytes,
                                          size_t len_bytes) {
@@ -189,15 +205,16 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
         params[0] = (void *) dest_address;
         params[1] = (void *) src_address;
 
-        flash_safe_execute([](void* params) {
-            uint32_t dest_address = (uint32_t)params[0];
-            uint8_t* src_address = (uint8_t*)params[1];
-
-            flash_range_program(dest_address, src_address, PFB_ALIGN_SIZE);
-        }, params, UINT32_MAX);
-       
+        flash_safe_execute(flash_program_helper, params, UINT32_MAX);
     }
     return 0;
+}
+
+static void flash_erase_helper(void* param_data) {
+    void** params = (void**)param_data;
+    uint32_t erase_address_with_xip_offset = (uint32_t)params[0];
+    uint32_t erase_len = (uint32_t)params[1];
+    flash_range_erase(erase_address_with_xip_offset, erase_len);
 }
 
 int pfb_initialize_download_slot(void) {
@@ -211,11 +228,7 @@ int pfb_initialize_download_slot(void) {
     params[1] = (void*)erase_len;
     pfb_firmware_commit();
 
-    flash_safe_execute([](void* params) {
-        uint32_t erase_address_with_xip_offset = (uint32_t)params[0];
-        uint32_t erase_len = (uint32_t)params[1];
-        flash_range_erase(erase_address_with_xip_offset, erase_len);
-    }, params, UINT32_MAX);
+    flash_safe_execute(flash_erase_helper, params, UINT32_MAX);
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
     mbedtls_aes_free(&g_aes_ctx);
