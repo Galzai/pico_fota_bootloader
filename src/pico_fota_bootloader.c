@@ -123,9 +123,7 @@ static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
         .data = data
     };
 
-    // Doing this unsafely just as a test
-    overwrite_4_bytes_in_flash_isr_unsafe(params.dest_addr - XIP_BASE, params.data);
-    // int result = flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, 10000); // Use a more reasonable timeout
+    flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, UINT32_MAX); // Use a more reasonable timeout
 }
 
 static void mark_download_slot(uint32_t magic) {
@@ -141,7 +139,6 @@ static void notify_pico_about_firmware(uint32_t magic) {
 
 static void mark_if_should_rollback(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_SHOULD_ROLLBACK);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
