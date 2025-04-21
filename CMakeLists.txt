@@ -43,11 +43,21 @@ endif()
 ########################################
 # Build linker definitions
 ########################################
-# PICO_FLASH_SIZE_BYTES
-execute_process(
-    COMMAND cat ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
-    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${CMAKE_BINARY_DIR}/linker_definitions.ld -
-    )
+# Create a linker definitions file at build time rather than config time
+set(LINKER_DEFINITIONS_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
+
+add_custom_command(
+    OUTPUT ${LINKER_DEFINITIONS_OUTPUT}
+    COMMAND ${CMAKE_COMMAND} -E cat ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
+    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${LINKER_DEFINITIONS_OUTPUT} -
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
+    COMMENT "Generating linker definitions"
+    VERBATIM
+)
+
+# Create a custom target so we can depend on it
+add_custom_target(generate_linker_definitions DEPENDS ${LINKER_DEFINITIONS_OUTPUT})
+
 ########################################
 # Check and set AES key
 ########################################
@@ -85,6 +95,9 @@ target_link_libraries(pico_fota_bootloader_lib PRIVATE
                       pico_mbedtls)
 target_link_options(pico_fota_bootloader_lib PRIVATE
                     "-T${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
+                    
+# Make sure linker definitions are generated before building the library
+add_dependencies(pico_fota_bootloader_lib generate_linker_definitions)
 
 if (PFB_WITH_IMAGE_ENCRYPTION)
     target_compile_definitions(pico_fota_bootloader_lib PRIVATE PFB_WITH_IMAGE_ENCRYPTION)
