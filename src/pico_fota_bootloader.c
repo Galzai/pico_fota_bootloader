@@ -123,10 +123,8 @@ static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
         .data = data
     };
 
-    // Disable interrupts to ensure atomicity of the flash operation
-    uint32_t saved_interrupts = save_and_disable_interrupts();
+    // Doing this unsafely just as a test
     overwrite_4_bytes_in_flash_isr_unsafe(params.dest_addr - XIP_BASE, params.data);
-    restore_interrupts(saved_interrupts);
     // int result = flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, 10000); // Use a more reasonable timeout
 }
 
