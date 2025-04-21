@@ -46,10 +46,14 @@ endif()
 # Create a linker definitions file at build time rather than config time
 set(LINKER_DEFINITIONS_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
 
+# Make sure the directory exists
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+# This approach wasn't correctly piping the content - let's fix it
 add_custom_command(
     OUTPUT ${LINKER_DEFINITIONS_OUTPUT}
-    COMMAND ${CMAKE_COMMAND} -E cat ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
-    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -o ${LINKER_DEFINITIONS_OUTPUT} -
+    COMMAND ${CMAKE_COMMAND} -E echo "/* Generated linker definitions */" > ${LINKER_DEFINITIONS_OUTPUT}
+    COMMAND ${CMAKE_C_COMPILER} -DFLASH_SIZE=${PICO_FLASH_SIZE_BYTES} -DFILESYSTEM_SIZE=${PFB_RESERVED_FILESYSTEM_SIZE_KB} -E -P -x c ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in -o ${LINKER_DEFINITIONS_OUTPUT}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/linker_common/linker_definitions.in
     COMMENT "Generating linker definitions"
     VERBATIM
@@ -57,6 +61,18 @@ add_custom_command(
 
 # Create a custom target so we can depend on it
 add_custom_target(generate_linker_definitions DEPENDS ${LINKER_DEFINITIONS_OUTPUT})
+
+# Copy the linker definitions to the parent build directory if we're used as a dependency
+if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    add_custom_command(
+        TARGET generate_linker_definitions
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy 
+                ${LINKER_DEFINITIONS_OUTPUT} 
+                ${CMAKE_BINARY_DIR}/linker_definitions.ld
+        COMMENT "Copying linker definitions to parent build directory"
+    )
+endif()
 
 ########################################
 # Check and set AES key
@@ -119,6 +135,10 @@ function(pfb_compile_with_bootloader Target)
         set(CPU "2350")
     endif()
 
+    # Make sure the linker definitions are generated first
+    add_dependencies(${Target} generate_linker_definitions)
+
+    # Ensure the linker can find our linker definitions
     target_link_options(${Target} PRIVATE "-L${BOOTLOADER_DIR_GLOBAL}/linker_common" "-L${CMAKE_CURRENT_BINARY_DIR}")
     pico_set_linker_script(${Target} ${BOOTLOADER_DIR_GLOBAL}/linker_common/app${CPU}.ld)
 
