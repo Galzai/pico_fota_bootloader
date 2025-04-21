@@ -31,7 +31,6 @@
 #include <hardware/sync.h>
 #include <hardware/watchdog.h>
 #include "pico/flash.h"
-#include "freertos/FreeRTOS.h"
 
 // Forward declarations of helper functions to replace lambdas
 static void overwrite_4_bytes_in_flash_helper(void* param_data);
