@@ -24,9 +24,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// Add debug logging macro
-#define DEBUG_LOG(fmt, ...) printf("[DEBUG] %s:%d - " fmt "\n", __func__, __LINE__, ##__VA_ARGS__)
-
 #include <hardware/flash.h>
 #include <hardware/sync.h>
 #include <hardware/watchdog.h>
@@ -87,79 +84,55 @@ mbedtls_aes_context g_aes_ctx;
 #endif // PFB_WITH_IMAGE_ENCRYPTION
 
 static inline void erase_flash_info_partition_isr_unsafe(void) {
-    DEBUG_LOG("Starting flash sector erase at address 0x%08lx", 
-              PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_INFO_START));
     flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_INFO_START),
                       FLASH_SECTOR_SIZE);
-    DEBUG_LOG("Completed flash sector erase");
 }
 
 static void
 overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
                                       uint32_t data) {
-    DEBUG_LOG("Starting with dest_addr=0x%08lx, data=0x%08lx", 
-              dest_addr_with_xip_offset, data);
-              
     uint8_t data_arr_u8[FLASH_SECTOR_SIZE] = {};
     uint32_t *data_ptr_u32 = (uint32_t *) data_arr_u8;
     uint32_t erase_start_addr_with_xip_offset =
             PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_INFO_START);
 
-    DEBUG_LOG("erase_start_addr=0x%08lx", erase_start_addr_with_xip_offset);
     assert(dest_addr_with_xip_offset >= erase_start_addr_with_xip_offset);
 
     void *flash_info_start_addr =
             (void *) (PFB_ADDR_AS_U32(__FLASH_INFO_START));
-    DEBUG_LOG("Reading flash content from 0x%08lx", (uint32_t)flash_info_start_addr);
     memcpy(data_arr_u8, flash_info_start_addr, FLASH_SECTOR_SIZE);
 
     size_t array_index =
             (dest_addr_with_xip_offset - erase_start_addr_with_xip_offset)
             / (sizeof(uint32_t));
-    DEBUG_LOG("Updating array index %u with value 0x%08lx", (unsigned)array_index, data);
     data_ptr_u32[array_index] = data;
 
-    DEBUG_LOG("Erasing flash info partition");
     erase_flash_info_partition_isr_unsafe();
-    DEBUG_LOG("Programming flash at address 0x%08lx", erase_start_addr_with_xip_offset);
     flash_range_program(erase_start_addr_with_xip_offset, data_arr_u8,
                         FLASH_SECTOR_SIZE);
-    DEBUG_LOG("Completed overwrite operation");
 }
 
 static void overwrite_4_bytes_in_flash_helper(void* param_data) {
-    DEBUG_LOG("Starting overwrite_4_bytes_in_flash_helper");
     overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
-    DEBUG_LOG("Parameters: dest_addr=0x%08lx, data=0x%08lx", params->dest_addr - XIP_BASE, params->data);
     overwrite_4_bytes_in_flash_isr_unsafe(params->dest_addr - XIP_BASE, params->data);
-    DEBUG_LOG("Completed overwrite_4_bytes_in_flash_helper");
 }
 
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
-    DEBUG_LOG("Starting with dest_addr=0x%08lx, data=0x%08lx", dest_addr, data);
-    
     overwrite_4bytes_params_t params = {
         .dest_addr = dest_addr,
         .data = data
     };
-    
-    DEBUG_LOG("Calling flash_safe_execute with timeout=%lu", UINT32_MAX);
-    uint32_t save_irq = save_and_disable_interrupts();
-    DEBUG_LOG("Interrupts disabled");
-    
-    int result = flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, 10000); // Use a more reasonable timeout
-    
-    DEBUG_LOG("flash_safe_execute returned %d", result);
-    restore_interrupts(save_irq);
-    DEBUG_LOG("Interrupts restored");
+
+    // Disable interrupts to ensure atomicity of the flash operation
+    uint32_t saved_interrupts = save_and_disable_interrupts();
+    overwrite_4_bytes_in_flash_isr_unsafe(params.dest_addr - XIP_BASE, params.data);
+    restore_interrupts(saved_interrupts);
+    // int result = flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, 10000); // Use a more reasonable timeout
 }
 
 static void mark_download_slot(uint32_t magic) {
-    DEBUG_LOG("Marking download slot with magic=0x%08lx", magic);
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID);
-    DEBUG_LOG("Destination address: 0x%08lx", dest_addr);
     overwrite_4_bytes_in_flash(dest_addr, magic);
-    DEBUG_LOG("Completed mark_download_slot");
 }
 
 static void notify_pico_about_firmware(uint32_t magic) {
