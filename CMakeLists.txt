@@ -43,13 +43,9 @@ endif()
 ########################################
 # Build linker definitions
 ########################################
-# Create a linker definitions file at build time rather than config time
 set(LINKER_DEFINITIONS_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/linker_definitions.ld")
-
-# Make sure the directory exists
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-# This approach wasn't correctly piping the content - let's fix it
 add_custom_command(
     OUTPUT ${LINKER_DEFINITIONS_OUTPUT}
     COMMAND ${CMAKE_COMMAND} -E echo "/* Generated linker definitions */" > ${LINKER_DEFINITIONS_OUTPUT}
@@ -59,10 +55,8 @@ add_custom_command(
     VERBATIM
 )
 
-# Create a custom target so we can depend on it
 add_custom_target(generate_linker_definitions DEPENDS ${LINKER_DEFINITIONS_OUTPUT})
 
-# Copy the linker definitions to the parent build directory if we're used as a dependency
 if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     add_custom_command(
         TARGET generate_linker_definitions

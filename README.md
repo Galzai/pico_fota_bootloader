@@ -3,7 +3,7 @@
 This bootloader allows you to perform secure `Firmware Over The Air (FOTA)`
 OTA updates with the Raspberry Pi Pico W board. It contains all required linker
 scripts that will adapt your application to the new application memory layout.
-This fork of the bootloader supports both RP2040 and RP2350 chips.
+This fork of the bootloader supports both RP2040 (Pico W) and RP2350 (Pico 2W) chips.
 
 The memory layout is as follows:
 
@@ -35,18 +35,6 @@ The memory layout is as follows:
 
 **Basic usage can be found
 [here](https://github.com/JZimnol/pico_fota_example).**
-
-You don't have to follow the exact file structure shown in the example below. You can also use CMake's FetchContent to include the bootloader in your project:
-
-```cmake
-include(FetchContent)
-FetchContent_Declare(
-  pico_fota_bootloader
-  GIT_REPOSITORY https://github.com/galzai/pico_fota_bootloader.git
-  GIT_TAG main  # or specific tag/commit
-)
-FetchContent_MakeAvailable(pico_fota_bootloader)
-```
 
 ## Features
 
@@ -108,29 +96,10 @@ FetchContent_MakeAvailable(pico_fota_bootloader)
 
 # Example
 
-## File structure
-
-Assume the following file structure:
-```
-your_project/
-├── CMakeLists.txt
-├── main.c
-├── pico_fota_bootloader/
-│   ├── CMakeLists.txt
-│   ├── include/
-│   │   └── pico_fota_bootloader.h
-│   ├── linker_common/
-│   │   ├── application.ld
-│   │   └── ...
-│   ├── bootloader.c
-│   └── src/
-│       └── pico_fota_bootloader.c
-└── pico_sdk_import.cmake
-```
-
-The following files should have the following contents:
 
 ### your_project/CMakeLists.txt
+
+This fork of the bootloader was only tested using FetchContent.
 
 ```cmake
 cmake_minimum_required(VERSION 3.13)
@@ -138,6 +107,15 @@ cmake_minimum_required(VERSION 3.13)
 # initialize the SDK based on PICO_SDK_PATH
 # note: this must happen before project()
 include(pico_sdk_import.cmake)
+
+include(FetchContent)
+FetchContent_Declare(
+  pico_fota_bootloader
+  GIT_REPOSITORY https://github.com/galzai/pico_fota_bootloader.git
+  GIT_TAG main  # or specific tag/commit
+)
+FetchContent_MakeAvailable(pico_fota_bootloader)
+
 ...
 pico_sdk_init()
 
@@ -204,6 +182,8 @@ int main() {
 }
 ```
 
+Note that while testing it seems that using FreeRTOS SMP may not fully work as expected. As such it is reccomended to pin the update code to it's own core without sharing it.
+
 ## Compiling and running
 
 ### Compiling
@@ -221,7 +201,7 @@ You should have output similar to:
 
 ```
 build/
-├── pico_fota_bootloader
+├── _deps\pico_fota_bootloader-build
 │   ├── CMakeFiles
 │   ├── cmake_install.cmake
 │   ├── libpico_fota_bootloader_lib.a
@@ -248,7 +228,7 @@ build/
 
 ### Running
 
-Set Pico W to the BOOTSEL state (by powering it up with the `BOOTSEL` button
+Set Pico W to the BOOTSEL state (by powering it up with the `BOOTSEL` button or using picotool reboot -u -f.
 pressed) and copy the `pico_fota_bootloader.uf2` file into it. Right now the
 Pico W is flashed with the bootloader but does not have proper application in
 the application FLASH memory slot. Then, set Pico W to the BOOTSEL state again

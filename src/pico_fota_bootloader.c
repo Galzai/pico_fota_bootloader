@@ -29,7 +29,6 @@
 #include <hardware/watchdog.h>
 #include "pico/flash.h"
 
-// Struct definitions for safer parameter passing
 typedef struct {
     uint32_t dest_addr;
     uint32_t data;

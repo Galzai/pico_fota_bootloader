@@ -63,8 +63,6 @@ typedef struct {
     uint32_t iteration_index;
 } swap_params_t;
 
-
-
 static void swap_images(void) {
     uint8_t swap_buff_from_download_slot[FLASH_SECTOR_SIZE];
     uint8_t swap_buff_from_application_slot[FLASH_SECTOR_SIZE];
