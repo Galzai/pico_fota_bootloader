@@ -91,6 +91,7 @@ static inline void erase_flash_info_partition_isr_unsafe(void) {
 static void
 overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
                                       uint32_t data) {
+    printf("Overwrite 4 bytes in flash isr unsafe\n");
     uint8_t data_arr_u8[FLASH_SECTOR_SIZE] = {};
     uint32_t *data_ptr_u32 = (uint32_t *) data_arr_u8;
     uint32_t erase_start_addr_with_xip_offset =
@@ -113,8 +114,11 @@ overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
 }
 
 static void overwrite_4_bytes_in_flash_helper(void* param_data) {
+    printf("Overwrite 4 bytes in flash helper\n");
     overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
+    printf("cast\n");
     overwrite_4_bytes_in_flash_isr_unsafe(params->dest_addr - XIP_BASE, params->data);
+    printf("cast 2\n"); 
 }
 
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
@@ -122,12 +126,14 @@ static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
         .dest_addr = dest_addr,
         .data = data
     };
-
-    flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, UINT32_MAX); // Use a more reasonable timeout
+    printf("Overwrite 4 bytes in flash\n");
+    flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, UINT32_MAX);
 }
 
 static void mark_download_slot(uint32_t magic) {
+    printf("Mark download slot 00\n");
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID);
+    printf("Mark download slot\n");
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
