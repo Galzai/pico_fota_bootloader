@@ -44,6 +44,12 @@ typedef struct {
     uint32_t erase_len;
 } flash_erase_params_t;
 
+/* Forward declarations for all static functions */
+static inline void erase_flash_info_partition_isr_unsafe(void);
+static inline void overwrite_4_bytes_in_flash_isr_unsafe(void* param_data);
+static inline void flash_program_isr_unsafe(void* param_data);
+static inline void flash_erase_isr_unsafe(void* param_data);
+
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
 #    include <mbedtls/aes.h>
 #endif // PFB_WITH_IMAGE_ENCRYPTION
@@ -76,13 +82,18 @@ typedef struct {
 mbedtls_aes_context g_aes_ctx;
 #endif // PFB_WITH_IMAGE_ENCRYPTION
 
+
+#ifdef PFB_WITH_IMAGE_ENCRYPTION
+static int decrypt_256_bytes(const uint8_t *src, uint8_t *out_dest);
+#endif // PFB_WITH_IMAGE_ENCRYPTION
+
+/* Flash operations implementations */
 static inline void erase_flash_info_partition_isr_unsafe(void) {
     flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_INFO_START),
                       FLASH_SECTOR_SIZE);
 }
 
-static void
-overwrite_4_bytes_in_flash_isr_unsafe(void* param_data) {
+static inline void overwrite_4_bytes_in_flash_isr_unsafe(void* param_data) {
     overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
     uint32_t dest_addr_with_xip_offset = params->dest_addr - XIP_BASE;
     uint32_t data = params->data;
@@ -115,6 +126,17 @@ static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
     flash_safe_execute(overwrite_4_bytes_in_flash_isr_unsafe, &params, UINT32_MAX);
 }
 
+static inline void flash_program_isr_unsafe(void* param_data) {
+    flash_program_params_t* params = (flash_program_params_t*)param_data;
+    flash_range_program(params->dest_address, params->src_address, PFB_ALIGN_SIZE);
+}
+
+static inline void flash_erase_isr_unsafe(void* param_data) {
+    flash_erase_params_t* params = (flash_erase_params_t*)param_data;
+    flash_range_erase(params->erase_address, params->erase_len);
+}
+
+/* Flash marking operations */
 static void mark_download_slot(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID);
     overwrite_4_bytes_in_flash(dest_addr, magic);
@@ -122,7 +144,6 @@ static void mark_download_slot(uint32_t magic) {
 
 static void notify_pico_about_firmware(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_FIRMWARE_SWAPPED);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
@@ -133,7 +154,6 @@ static void mark_if_should_rollback(uint32_t magic) {
 
 static void mark_if_is_after_rollback(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_AFTER_ROLLBACK);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
@@ -156,6 +176,7 @@ static int decrypt_256_bytes(const uint8_t *src, uint8_t *out_dest) {
 }
 #endif // PFB_WITH_IMAGE_ENCRYPTION
 
+/* Public API implementations */
 void pfb_mark_download_slot_as_valid(void) {
     mark_download_slot(PFB_SHOULD_SWAP_MAGIC);
 }
@@ -166,11 +187,6 @@ void pfb_mark_download_slot_as_invalid(void) {
 
 bool pfb_is_after_firmware_update(void) {
     return (__FLASH_INFO_IS_FIRMWARE_SWAPPED == PFB_HAS_NEW_FIRMWARE_MAGIC);
-}
-
-static void flash_program_isr_unsafe(void* param_data) {
-    flash_program_params_t* params = (flash_program_params_t*)param_data;
-    flash_range_program(params->dest_address, params->src_address, PFB_ALIGN_SIZE);
 }
 
 int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
@@ -210,9 +226,12 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
     return 0;
 }
 
-static void flash_erase_isr_unsafe(void* param_data) {
-    flash_erase_params_t* params = (flash_erase_params_t*)param_data;
-    flash_range_erase(params->erase_address, params->erase_len);
+void pfb_firmware_commit(void) {
+    mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
+}
+
+bool pfb_is_after_rollback(void) {
+    return (__FLASH_INFO_IS_AFTER_ROLLBACK == PFB_IS_AFTER_ROLLBACK_MAGIC);
 }
 
 int pfb_initialize_download_slot(void) {
@@ -248,14 +267,6 @@ void pfb_perform_update(void) {
 #endif // PFB_WITH_IMAGE_ENCRYPTION
     watchdog_enable(1, 1);
     while (1);
-}
-
-void pfb_firmware_commit(void) {
-    mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
-}
-
-bool pfb_is_after_rollback(void) {
-    return (__FLASH_INFO_IS_AFTER_ROLLBACK == PFB_IS_AFTER_ROLLBACK_MAGIC);
 }
 
 int pfb_firmware_sha256_check(size_t firmware_size) {
@@ -301,6 +312,7 @@ int pfb_firmware_sha256_check(size_t firmware_size) {
     return 0;
 }
 
+/* Internal API implementations */
 void _pfb_mark_should_rollback(void) {
     mark_if_should_rollback(PFB_SHOULD_ROLLBACK_MAGIC);
 }
