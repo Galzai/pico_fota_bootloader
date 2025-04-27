@@ -1,8 +1,9 @@
-# Raspberry Pi Pico W FOTA Bootloader
+# Raspberry Pi Pico  FOTA Bootloader
 
 This bootloader allows you to perform secure `Firmware Over The Air (FOTA)`
 OTA updates with the Raspberry Pi Pico W board. It contains all required linker
 scripts that will adapt your application to the new application memory layout.
+This fork of the bootloader supports both RP2040 and RP2350 chips.
 
 The memory layout is as follows:
 
@@ -24,15 +25,28 @@ The memory layout is as follows:
 +-------------------------------------------+
 |            Padding (4072 bytes)           |
 +-------------------------------------------+  <-- __FLASH_APP_START
-|       Flash Application Slot (1004k)      |
+|    Flash Application Slot (FLASH_SIZE/2)  |
 +-------------------------------------------+  <-- __FLASH_DOWNLOAD_SLOT_START
-|        Flash Download Slot (1004k)        |
+|     Flash Download Slot (FLASH_SIZE/2)    |
 +-------------------------------------------+
 ```
+
 ## Basic usage
 
 **Basic usage can be found
 [here](https://github.com/JZimnol/pico_fota_example).**
+
+You don't have to follow the exact file structure shown in the example below. You can also use CMake's FetchContent to include the bootloader in your project:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  pico_fota_bootloader
+  GIT_REPOSITORY https://github.com/galzai/pico_fota_bootloader.git
+  GIT_TAG main  # or specific tag/commit
+)
+FetchContent_MakeAvailable(pico_fota_bootloader)
+```
 
 ## Features
 
@@ -88,7 +102,7 @@ The memory layout is as follows:
   - required for the `pico_mbedtls` library
 
 - `Python 3` with the following packages: `argparse`, `hashlib`, `os`,
-  `Crypto.Cipher`
+  `Cryptodome`
 
   - required for the SHA256 calculation and AES ECB image encryption
 

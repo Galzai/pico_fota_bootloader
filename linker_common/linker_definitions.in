@@ -69,11 +69,10 @@ __FLASH_SWAP_SPACE_LENGTH = (__FLASH_SIZE - __BOOTLOADER_LENGTH - __FLASH_INFO_L
 so
 (.text .rodata .big_const .binary_info) == (max binary size) - (possible .data)
 
-TODO: Update this comment, also hardcoded 256k probably a bad idea
 We can declare the (possible .data) as the whole 256k, but that's not likely to
 happen. Assume 128k max, but can be easily lowered depending on the application.
 */
-__FLASH_SLOT_LENGTH = __FLASH_SWAP_SPACE_LENGTH - 256k;
+__FLASH_SLOT_LENGTH = __FLASH_SWAP_SPACE_LENGTH - 128k;
 __FLASH_DOWNLOAD_SLOT_START = __FLASH_APP_START + __FLASH_SWAP_SPACE_LENGTH;
 
 ASSERT(__FLASH_SWAP_SPACE_LENGTH == (__FLASH_SIZE - __BOOTLOADER_LENGTH - __FLASH_INFO_LENGTH) / 2,

@@ -57,8 +57,13 @@ bool _pfb_should_rollback(void);
 void _pfb_mark_should_rollback(void);
 bool _pfb_has_firmware_to_swap(void);
 
-// Forward declaration of helper function to replace lambda
-static void swap_images_helper(void* param_data);
+typedef struct {
+    uint8_t* swap_buff_from_download_slot;
+    uint8_t* swap_buff_from_application_slot;
+    uint32_t iteration_index;
+} swap_params_t;
+
+
 
 static void swap_images(void) {
     uint8_t swap_buff_from_download_slot[FLASH_SECTOR_SIZE];
@@ -66,21 +71,21 @@ static void swap_images(void) {
     const uint32_t SWAP_ITERATIONS =
             PFB_ADDR_AS_U32(__FLASH_SWAP_SPACE_LENGTH) / FLASH_SECTOR_SIZE;
 
-    void* params[3];
-    params[0] = (void*)swap_buff_from_download_slot;
-    params[1] = (void*)swap_buff_from_application_slot;
+    swap_params_t params;
+    params.swap_buff_from_download_slot = swap_buff_from_download_slot;
+    params.swap_buff_from_application_slot = swap_buff_from_application_slot;
 
     for (uint32_t i = 0; i < SWAP_ITERATIONS; i++) {
-        params[2] = (void*)i;
-        flash_safe_execute(swap_images_helper, params, UINT32_MAX);
+        params.iteration_index = i;
+        flash_safe_execute(swap_images_unsafe, &params, UINT32_MAX);
     }
 }
 
-static void swap_images_helper(void* param_data) {
-    void** args = (void**)param_data;
-    uint8_t* swap_buff_from_download_slot = (uint8_t*)args[0];
-    uint8_t* swap_buff_from_application_slot = (uint8_t*)args[1];
-    size_t i = (uint32_t)args[2];
+static void swap_images_unsafe(void* param_data) {
+    swap_params_t* params = (swap_params_t*)param_data;
+    uint8_t* swap_buff_from_download_slot = params->swap_buff_from_download_slot;
+    uint8_t* swap_buff_from_application_slot = params->swap_buff_from_application_slot;
+    uint32_t i = params->iteration_index;
 
     memcpy(swap_buff_from_download_slot,
            (void *) (PFB_ADDR_AS_U32(__FLASH_DOWNLOAD_SLOT_START)

@@ -3,7 +3,7 @@
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
+ * in the Software without restriction, including but not limited to the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
@@ -29,11 +29,6 @@
 #include <hardware/watchdog.h>
 #include "pico/flash.h"
 
-// Forward declarations of helper functions to replace lambdas
-static void overwrite_4_bytes_in_flash_helper(void* param_data);
-static void flash_program_helper(void* param_data);
-static void flash_erase_helper(void* param_data);
-
 // Struct definitions for safer parameter passing
 typedef struct {
     uint32_t dest_addr;
@@ -58,7 +53,6 @@ typedef struct {
 #endif // PFB_WITH_SHA256_HASHING
 
 #include <pico_fota_bootloader.h>
-
 #include "../linker_common/linker_definitions.h"
 
 /**
@@ -89,9 +83,10 @@ static inline void erase_flash_info_partition_isr_unsafe(void) {
 }
 
 static void
-overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
-                                      uint32_t data) {
-    printf("Overwrite 4 bytes in flash isr unsafe\n");
+overwrite_4_bytes_in_flash_isr_unsafe(void* param_data) {
+    overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
+    uint32_t dest_addr_with_xip_offset = params->dest_addr - XIP_BASE;
+    uint32_t data = params->data;
     uint8_t data_arr_u8[FLASH_SECTOR_SIZE] = {};
     uint32_t *data_ptr_u32 = (uint32_t *) data_arr_u8;
     uint32_t erase_start_addr_with_xip_offset =
@@ -113,27 +108,16 @@ overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
                         FLASH_SECTOR_SIZE);
 }
 
-static void overwrite_4_bytes_in_flash_helper(void* param_data) {
-    printf("Overwrite 4 bytes in flash helper\n");
-    overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
-    printf("cast\n");
-    overwrite_4_bytes_in_flash_isr_unsafe(params->dest_addr - XIP_BASE, params->data);
-    printf("cast 2\n"); 
-}
-
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
     overwrite_4bytes_params_t params = {
         .dest_addr = dest_addr,
         .data = data
     };
-    printf("Overwrite 4 bytes in flash\n");
-    flash_safe_execute(overwrite_4_bytes_in_flash_helper, &params, UINT32_MAX);
+    flash_safe_execute(overwrite_4_bytes_in_flash_isr_unsafe, &params, UINT32_MAX);
 }
 
 static void mark_download_slot(uint32_t magic) {
-    printf("Mark download slot 00\n");
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID);
-    printf("Mark download slot\n");
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
@@ -185,7 +169,7 @@ bool pfb_is_after_firmware_update(void) {
     return (__FLASH_INFO_IS_FIRMWARE_SWAPPED == PFB_HAS_NEW_FIRMWARE_MAGIC);
 }
 
-static void flash_program_helper(void* param_data) {
+static void flash_program_isr_unsafe(void* param_data) {
     flash_program_params_t* params = (flash_program_params_t*)param_data;
     flash_range_program(params->dest_address, params->src_address, PFB_ALIGN_SIZE);
 }
@@ -222,12 +206,12 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
             .src_address = src_address
         };
 
-        flash_safe_execute(flash_program_helper, &params, UINT32_MAX);
+        flash_safe_execute(flash_program_isr_unsafe, &params, UINT32_MAX);
     }
     return 0;
 }
 
-static void flash_erase_helper(void* param_data) {
+static void flash_erase_isr_unsafe(void* param_data) {
     flash_erase_params_t* params = (flash_erase_params_t*)param_data;
     flash_range_erase(params->erase_address, params->erase_len);
 }
@@ -244,7 +228,7 @@ int pfb_initialize_download_slot(void) {
     };
     
     pfb_firmware_commit();
-    flash_safe_execute(flash_erase_helper, &params, UINT32_MAX);
+    flash_safe_execute(flash_erase_isr_unsafe, &params, UINT32_MAX);
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
     mbedtls_aes_free(&g_aes_ctx);
