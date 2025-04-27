@@ -25,9 +25,9 @@
 #include <string.h>
 
 #include <hardware/flash.h>
+#include "pico/flash.h"
 #include <hardware/sync.h>
 #include <hardware/watchdog.h>
-#include "pico/flash.h"
 
 typedef struct {
     uint32_t dest_addr;

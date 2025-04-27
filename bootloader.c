@@ -29,6 +29,7 @@
 #include <RP2040.h>
 #endif
 
+#include "pico/flash.h"
 #include <hardware/flash.h>
 #include <hardware/resets.h>
 #include <hardware/sync.h>
@@ -56,6 +57,7 @@ void _pfb_mark_is_not_after_rollback(void);
 bool _pfb_should_rollback(void);
 void _pfb_mark_should_rollback(void);
 bool _pfb_has_firmware_to_swap(void);
+static void swap_images_unsafe(void* param_data);
 
 typedef struct {
     uint8_t* swap_buff_from_download_slot;
@@ -79,7 +81,7 @@ static void swap_images(void) {
     }
 }
 
-static void swap_images_unsafe(void* param_data) {
+static inline void swap_images_unsafe(void* param_data) {
     swap_params_t* params = (swap_params_t*)param_data;
     uint8_t* swap_buff_from_download_slot = params->swap_buff_from_download_slot;
     uint8_t* swap_buff_from_application_slot = params->swap_buff_from_application_slot;
