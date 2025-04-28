@@ -3,7 +3,7 @@
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
+ * in the Software without restriction, including but not limited to the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
@@ -25,8 +25,30 @@
 #include <string.h>
 
 #include <hardware/flash.h>
+#include "pico/flash.h"
 #include <hardware/sync.h>
 #include <hardware/watchdog.h>
+
+typedef struct {
+    uint32_t dest_addr;
+    uint32_t data;
+} overwrite_4bytes_params_t;
+
+typedef struct {
+    uint32_t dest_address;
+    uint8_t* src_address;
+} flash_program_params_t;
+
+typedef struct {
+    uint32_t erase_address;
+    uint32_t erase_len;
+} flash_erase_params_t;
+
+/* Forward declarations for all static functions */
+static inline void erase_flash_info_partition_isr_unsafe(void);
+static inline void overwrite_4_bytes_in_flash_isr_unsafe(void* param_data);
+static inline void flash_program_isr_unsafe(void* param_data);
+static inline void flash_erase_isr_unsafe(void* param_data);
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
 #    include <mbedtls/aes.h>
@@ -36,7 +58,6 @@
 #endif // PFB_WITH_SHA256_HASHING
 
 #include <pico_fota_bootloader.h>
-
 #include "../linker_common/linker_definitions.h"
 
 /**
@@ -61,14 +82,21 @@
 mbedtls_aes_context g_aes_ctx;
 #endif // PFB_WITH_IMAGE_ENCRYPTION
 
+
+#ifdef PFB_WITH_IMAGE_ENCRYPTION
+static int decrypt_256_bytes(const uint8_t *src, uint8_t *out_dest);
+#endif // PFB_WITH_IMAGE_ENCRYPTION
+
+/* Flash operations implementations */
 static inline void erase_flash_info_partition_isr_unsafe(void) {
     flash_range_erase(PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_INFO_START),
                       FLASH_SECTOR_SIZE);
 }
 
-static void
-overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
-                                      uint32_t data) {
+static inline void overwrite_4_bytes_in_flash_isr_unsafe(void* param_data) {
+    overwrite_4bytes_params_t* params = (overwrite_4bytes_params_t*)param_data;
+    uint32_t dest_addr_with_xip_offset = params->dest_addr - XIP_BASE;
+    uint32_t data = params->data;
     uint8_t data_arr_u8[FLASH_SECTOR_SIZE] = {};
     uint32_t *data_ptr_u32 = (uint32_t *) data_arr_u8;
     uint32_t erase_start_addr_with_xip_offset =
@@ -91,32 +119,41 @@ overwrite_4_bytes_in_flash_isr_unsafe(uint32_t dest_addr_with_xip_offset,
 }
 
 static void overwrite_4_bytes_in_flash(uint32_t dest_addr, uint32_t data) {
-    uint32_t saved_interrupts = save_and_disable_interrupts();
-    overwrite_4_bytes_in_flash_isr_unsafe(dest_addr - XIP_BASE, data);
-    restore_interrupts(saved_interrupts);
+    overwrite_4bytes_params_t params = {
+        .dest_addr = dest_addr,
+        .data = data
+    };
+    flash_safe_execute(overwrite_4_bytes_in_flash_isr_unsafe, &params, UINT32_MAX);
 }
 
+static inline void flash_program_isr_unsafe(void* param_data) {
+    flash_program_params_t* params = (flash_program_params_t*)param_data;
+    flash_range_program(params->dest_address, params->src_address, PFB_ALIGN_SIZE);
+}
+
+static inline void flash_erase_isr_unsafe(void* param_data) {
+    flash_erase_params_t* params = (flash_erase_params_t*)param_data;
+    flash_range_erase(params->erase_address, params->erase_len);
+}
+
+/* Flash marking operations */
 static void mark_download_slot(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
 static void notify_pico_about_firmware(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_FIRMWARE_SWAPPED);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
 static void mark_if_should_rollback(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_SHOULD_ROLLBACK);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
 static void mark_if_is_after_rollback(uint32_t magic) {
     uint32_t dest_addr = PFB_ADDR_AS_U32(__FLASH_INFO_IS_AFTER_ROLLBACK);
-
     overwrite_4_bytes_in_flash(dest_addr, magic);
 }
 
@@ -139,6 +176,7 @@ static int decrypt_256_bytes(const uint8_t *src, uint8_t *out_dest) {
 }
 #endif // PFB_WITH_IMAGE_ENCRYPTION
 
+/* Public API implementations */
 void pfb_mark_download_slot_as_valid(void) {
     mark_download_slot(PFB_SHOULD_SWAP_MAGIC);
 }
@@ -159,7 +197,7 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
                    > (size_t) PFB_ADDR_AS_U32(__FLASH_SWAP_SPACE_LENGTH)) {
         return 1;
     }
-
+    
     for (int i = 0; i < len_bytes / PFB_ALIGN_SIZE; i++) {
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
         unsigned char output_aes_dec[PFB_ALIGN_SIZE];
@@ -177,11 +215,23 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
 #else  // PFB_WITH_IMAGE_ENCRYPTION
                 src + i * PFB_ALIGN_SIZE;
 #endif // PFB_WITH_IMAGE_ENCRYPTION
-        uint32_t saved_interrupts = save_and_disable_interrupts();
-        flash_range_program(dest_address, src_address, PFB_ALIGN_SIZE);
-        restore_interrupts(saved_interrupts);
+        
+        flash_program_params_t params = {
+            .dest_address = dest_address,
+            .src_address = src_address
+        };
+
+        flash_safe_execute(flash_program_isr_unsafe, &params, UINT32_MAX);
     }
     return 0;
+}
+
+void pfb_firmware_commit(void) {
+    mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
+}
+
+bool pfb_is_after_rollback(void) {
+    return (__FLASH_INFO_IS_AFTER_ROLLBACK == PFB_IS_AFTER_ROLLBACK_MAGIC);
 }
 
 int pfb_initialize_download_slot(void) {
@@ -190,11 +240,13 @@ int pfb_initialize_download_slot(void) {
             PFB_ADDR_WITH_XIP_OFFSET_AS_U32(__FLASH_DOWNLOAD_SLOT_START);
     assert(erase_len % FLASH_SECTOR_SIZE == 0);
 
+    flash_erase_params_t params = {
+        .erase_address = erase_address_with_xip_offset,
+        .erase_len = erase_len
+    };
+    
     pfb_firmware_commit();
-
-    uint32_t saved_interrupts = save_and_disable_interrupts();
-    flash_range_erase(erase_address_with_xip_offset, erase_len);
-    restore_interrupts(saved_interrupts);
+    flash_safe_execute(flash_erase_isr_unsafe, &params, UINT32_MAX);
 
 #ifdef PFB_WITH_IMAGE_ENCRYPTION
     mbedtls_aes_free(&g_aes_ctx);
@@ -214,16 +266,7 @@ void pfb_perform_update(void) {
     mbedtls_aes_free(&g_aes_ctx);
 #endif // PFB_WITH_IMAGE_ENCRYPTION
     watchdog_enable(1, 1);
-    while (1)
-        ;
-}
-
-void pfb_firmware_commit(void) {
-    mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
-}
-
-bool pfb_is_after_rollback(void) {
-    return (__FLASH_INFO_IS_AFTER_ROLLBACK == PFB_IS_AFTER_ROLLBACK_MAGIC);
+    while (1);
 }
 
 int pfb_firmware_sha256_check(size_t firmware_size) {
@@ -269,6 +312,7 @@ int pfb_firmware_sha256_check(size_t firmware_size) {
     return 0;
 }
 
+/* Internal API implementations */
 void _pfb_mark_should_rollback(void) {
     mark_if_should_rollback(PFB_SHOULD_ROLLBACK_MAGIC);
 }
