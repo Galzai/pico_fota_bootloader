@@ -113,7 +113,6 @@ static inline void swap_images_unsafe(void* param_data) {
                         FLASH_SECTOR_SIZE);
 }
 
-// Added a _ prefix to avoid name collision with the pico-sdk 2.1.1
 static void _disable_interrupts(void) {
     SysTick->CTRL &= ~1;
 
@@ -145,7 +144,7 @@ static void print_welcome_message(void) {
     puts("");
     puts("***********************************************************");
     puts("*                                                         *");
-    puts("*           Raspberry Pi Pico W FOTA Bootloader           *");
+    puts("*           Raspberry Pi Pico (2)W FOTA Bootloader        *");
     puts("*             Copyright (c) 2024 Jakub Zimnol             *");
     puts("*                                                         *");
     puts("***********************************************************");
@@ -156,17 +155,17 @@ static void print_welcome_message(void) {
 
 int main(void) {
     stdio_init_all();
-    sleep_ms(2000);
-
     print_welcome_message();
 
     if (_pfb_should_rollback()) {
+        sleep(2000);
         BOOTLOADER_LOG("Rolling back to the previous firmware");
         swap_images();
         pfb_firmware_commit();
         _pfb_mark_pico_has_no_new_firmware();
         _pfb_mark_is_after_rollback();
     } else if (_pfb_has_firmware_to_swap()) {
+        sleep(2000);
         BOOTLOADER_LOG("Swapping images");
         swap_images();
         _pfb_mark_pico_has_new_firmware();
@@ -177,6 +176,7 @@ int main(void) {
         pfb_firmware_commit();
         _pfb_mark_pico_has_no_new_firmware();
     }
+
 
     pfb_mark_download_slot_as_invalid();
     BOOTLOADER_LOG("End of execution, executing the application...\n");

@@ -178,11 +178,13 @@ static int decrypt_256_bytes(const uint8_t *src, uint8_t *out_dest) {
 
 /* Public API implementations */
 void pfb_mark_download_slot_as_valid(void) {
-    mark_download_slot(PFB_SHOULD_SWAP_MAGIC);
+    if (__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID != PFB_SHOULD_SWAP_MAGIC)
+        mark_download_slot(PFB_SHOULD_SWAP_MAGIC);
 }
 
 void pfb_mark_download_slot_as_invalid(void) {
-    mark_download_slot(PFB_SHOULD_NOT_SWAP_MAGIC);
+    if (__FLASH_INFO_IS_DOWNLOAD_SLOT_VALID != PFB_SHOULD_NOT_SWAP_MAGIC)
+        mark_download_slot(PFB_SHOULD_NOT_SWAP_MAGIC);
 }
 
 bool pfb_is_after_firmware_update(void) {
@@ -227,7 +229,8 @@ int pfb_write_to_flash_aligned_256_bytes(uint8_t *src,
 }
 
 void pfb_firmware_commit(void) {
-    mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
+    if (__FLASH_INFO_IS_AFTER_ROLLBACK != PFB_SHOULD_NOT_ROLLBACK_MAGIC)
+        mark_if_should_rollback(PFB_SHOULD_NOT_ROLLBACK_MAGIC);
 }
 
 bool pfb_is_after_rollback(void) {
@@ -314,15 +317,18 @@ int pfb_firmware_sha256_check(size_t firmware_size) {
 
 /* Internal API implementations */
 void _pfb_mark_should_rollback(void) {
-    mark_if_should_rollback(PFB_SHOULD_ROLLBACK_MAGIC);
+    if (__FLASH_INFO_SHOULD_ROLLBACK != PFB_SHOULD_ROLLBACK_MAGIC)
+        mark_if_should_rollback(PFB_SHOULD_ROLLBACK_MAGIC);
 }
 
 void _pfb_mark_is_after_rollback(void) {
-    mark_if_is_after_rollback(PFB_IS_AFTER_ROLLBACK_MAGIC);
+    if (__FLASH_INFO_IS_AFTER_ROLLBACK != PFB_IS_AFTER_ROLLBACK_MAGIC)
+        mark_if_is_after_rollback(PFB_IS_AFTER_ROLLBACK_MAGIC);
 }
 
 void _pfb_mark_is_not_after_rollback(void) {
-    mark_if_is_after_rollback(PFB_IS_NOT_AFTER_ROLLBACK_MAGIC);
+    if (__FLASH_INFO_IS_AFTER_ROLLBACK != PFB_IS_NOT_AFTER_ROLLBACK_MAGIC)
+        mark_if_is_after_rollback(PFB_IS_NOT_AFTER_ROLLBACK_MAGIC);
 }
 
 bool _pfb_should_rollback(void) {
@@ -334,9 +340,11 @@ bool _pfb_has_firmware_to_swap(void) {
 }
 
 void _pfb_mark_pico_has_new_firmware(void) {
-    notify_pico_about_firmware(PFB_HAS_NEW_FIRMWARE_MAGIC);
+    if (__FLASH_INFO_IS_FIRMWARE_SWAPPED != PFB_HAS_NEW_FIRMWARE_MAGIC)
+        notify_pico_about_firmware(PFB_HAS_NEW_FIRMWARE_MAGIC);
 }
 
 void _pfb_mark_pico_has_no_new_firmware(void) {
-    notify_pico_about_firmware(PFB_NO_NEW_FIRMWARE_MAGIC);
+    if (__FLASH_INFO_IS_FIRMWARE_SWAPPED != PFB_NO_NEW_FIRMWARE_MAGIC)
+        notify_pico_about_firmware(PFB_NO_NEW_FIRMWARE_MAGIC);
 }
