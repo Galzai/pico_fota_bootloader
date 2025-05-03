@@ -158,14 +158,12 @@ int main(void) {
     print_welcome_message();
 
     if (_pfb_should_rollback()) {
-        sleep(2000);
         BOOTLOADER_LOG("Rolling back to the previous firmware");
         swap_images();
         pfb_firmware_commit();
         _pfb_mark_pico_has_no_new_firmware();
         _pfb_mark_is_after_rollback();
     } else if (_pfb_has_firmware_to_swap()) {
-        sleep(2000);
         BOOTLOADER_LOG("Swapping images");
         swap_images();
         _pfb_mark_pico_has_new_firmware();
