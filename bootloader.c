@@ -36,6 +36,7 @@
 #include <pico/stdlib.h>
 
 #include <pico_fota_bootloader.h>
+#include "pico_fota_bootloader_handlers.h"
 #include <stdlib.h>
 
 #include "linker_common/linker_definitions.h"
@@ -153,7 +154,6 @@ static void print_welcome_message(void) {
 #endif // PFB_WITH_BOOTLOADER_LOGS
 }
 
-#include "pico_fota_bootloader_handlers.h"
 __attribute__((weak)) void on_bootloader_started(void) {}
 __attribute__((weak)) void on_boot_completed(boot_status_t status) { (void)status; }
 

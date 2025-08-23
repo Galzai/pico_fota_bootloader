@@ -36,6 +36,10 @@ option(PFB_WITH_IMAGE_ENCRYPTION "Enables image encryption using AES ECB algorit
 option(PFB_AES_KEY "AES key used for image encryption and decryption")
 option(PFB_WITH_SHA256_HASHING "Enables image SHA256 appending and checking" ON)
 
+# Allow consumers (e.g., via FetchContent) to inject custom bootloader handler sources
+# Provide one or more files as a semicolon-separated list
+set(PFB_BOOTLOADER_HANDLERS_SRCS "" CACHE STRING "Semicolon-separated list of custom bootloader handler source files to compile into the bootloader binary")
+
 if ( NOT PFB_RESERVED_FILESYSTEM_SIZE_KB )
     set(PFB_RESERVED_FILESYSTEM_SIZE_KB 0)
 endif()
@@ -174,6 +178,11 @@ endfunction()
 ################################################################################
 add_executable(pico_fota_bootloader
                bootloader.c)
+# If consumer provided custom handler sources, add them to the bootloader target
+if(PFB_BOOTLOADER_HANDLERS_SRCS)
+    message(STATUS "Including custom bootloader handler sources: ${PFB_BOOTLOADER_HANDLERS_SRCS}")
+    target_sources(pico_fota_bootloader PRIVATE ${PFB_BOOTLOADER_HANDLERS_SRCS})
+endif()
 target_link_libraries(pico_fota_bootloader
                       hardware_structs
                       hardware_resets
