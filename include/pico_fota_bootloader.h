@@ -1,46 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
-
-/**
- * Optional handler called when the bootloader starts.
- * Define this function in your application to run custom code at bootloader start.
- */
-__attribute__((weak)) void on_bootloader_started(void);
-
-/**
- * Optional handler called when the bootloader completes.
- * Define this function in your application to run custom code at bootloader end.
- * @param status 0 for success, nonzero for rollback or error
- */
-__attribute__((weak)) void on_boot_completed(int status);
-/*
- * Copyright (c) 2024 Jakub Zimnol
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
 #ifndef PICO_FOTA_BOOTLOADER
 #define PICO_FOTA_BOOTLOADER
 
@@ -49,6 +6,7 @@ extern "C" {
 #endif
 
 #include <pico/stdlib.h>
+#include "pico_fota_bootloader_handlers.h"
 
 #define PFB_ALIGN_SIZE (256)
 
