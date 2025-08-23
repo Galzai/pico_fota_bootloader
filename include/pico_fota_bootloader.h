@@ -1,3 +1,24 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+
+/**
+ * Optional handler called when the bootloader starts.
+ * Define this function in your application to run custom code at bootloader start.
+ */
+__attribute__((weak)) void on_bootloader_started(void);
+
+/**
+ * Optional handler called when the bootloader completes.
+ * Define this function in your application to run custom code at bootloader end.
+ * @param status 0 for success, nonzero for rollback or error
+ */
+__attribute__((weak)) void on_boot_completed(int status);
 /*
  * Copyright (c) 2024 Jakub Zimnol
  *
@@ -20,8 +41,8 @@
  * SOFTWARE.
  */
 
-#ifndef PICO_FOTA_BOOTLOADER_H
-#define PICO_FOTA_BOOTLOADER_H
+#ifndef PICO_FOTA_BOOTLOADER
+#define PICO_FOTA_BOOTLOADER
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,4 +151,4 @@ int pfb_firmware_sha256_check(size_t firmware_size);
 }
 #endif
 
-#endif // PICO_FOTA_BOOTLOADER_H
+#endif /* PICO_FOTA_BOOTLOADER */
