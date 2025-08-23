@@ -160,7 +160,6 @@ __attribute__((weak)) void on_boot_completed(boot_status_t status) { (void)statu
 int main(void) {
     stdio_init_all();
     print_welcome_message();
-
     on_bootloader_started();
 
     boot_status_t status = BOOT_STATUS_OK;
