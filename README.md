@@ -1,3 +1,30 @@
+## Custom Bootloader Event Handlers
+
+You can optionally define the following functions in your application to hook into the bootloader process. Include `pico_fota_bootloader_handlers.h` in your project.
+
+If you're consuming this repo via FetchContent and building the bootloader as a separate binary, provide your handler implementations to the bootloader at configure time by passing your source file(s) via the `PFB_BOOTLOADER_HANDLERS_SRCS` cache variable (semicolon-separated list):
+
+```
+-DPFB_BOOTLOADER_HANDLERS_SRCS="/abs/path/my_bootloader_handlers.c"
+```
+
+These source files will be compiled into the bootloader, overriding the default weak handlers.
+
+```c
+#include <pico_fota_bootloader_handlers.h>
+
+// Called at the very start of the bootloader
+void on_bootloader_started(void);
+
+// Called at the end of the bootloader
+// status is a boot_status_t enum:
+//   BOOT_STATUS_OK        - Normal boot, nothing swapped
+//   BOOT_STATUS_SWAP      - Firmware swapped
+//   BOOT_STATUS_ROLLBACK  - Rollback performed
+void on_boot_completed(boot_status_t status);
+```
+
+If you do not provide custom sources, the bootloader will use default empty handlers.
 # Raspberry Pi Pico  FOTA Bootloader
 
 This bootloader allows you to perform secure `Firmware Over The Air (FOTA)`

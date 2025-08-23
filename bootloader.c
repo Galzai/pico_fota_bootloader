@@ -36,6 +36,7 @@
 #include <pico/stdlib.h>
 
 #include <pico_fota_bootloader.h>
+#include "pico_fota_bootloader_handlers.h"
 #include <stdlib.h>
 
 #include "linker_common/linker_definitions.h"
@@ -113,7 +114,6 @@ static inline void swap_images_unsafe(void* param_data) {
                         FLASH_SECTOR_SIZE);
 }
 
-// Added a _ prefix to avoid name collision with the pico-sdk 2.1.1
 static void _disable_interrupts(void) {
     SysTick->CTRL &= ~1;
 
@@ -145,7 +145,7 @@ static void print_welcome_message(void) {
     puts("");
     puts("***********************************************************");
     puts("*                                                         *");
-    puts("*           Raspberry Pi Pico W FOTA Bootloader           *");
+    puts("*           Raspberry Pi Pico (2)W FOTA Bootloader        *");
     puts("*             Copyright (c) 2024 Jakub Zimnol             *");
     puts("*                                                         *");
     puts("***********************************************************");
@@ -154,31 +154,39 @@ static void print_welcome_message(void) {
 #endif // PFB_WITH_BOOTLOADER_LOGS
 }
 
+__attribute__((weak)) void on_bootloader_started(void) {}
+__attribute__((weak)) void on_boot_completed(boot_status_t status) { (void)status; }
+
 int main(void) {
     stdio_init_all();
-    sleep_ms(2000);
-
     print_welcome_message();
+    on_bootloader_started();
 
+    boot_status_t status = BOOT_STATUS_OK;
     if (_pfb_should_rollback()) {
         BOOTLOADER_LOG("Rolling back to the previous firmware");
         swap_images();
         pfb_firmware_commit();
         _pfb_mark_pico_has_no_new_firmware();
         _pfb_mark_is_after_rollback();
+        status = BOOT_STATUS_ROLLBACK;
     } else if (_pfb_has_firmware_to_swap()) {
         BOOTLOADER_LOG("Swapping images");
         swap_images();
         _pfb_mark_pico_has_new_firmware();
         _pfb_mark_is_not_after_rollback();
         _pfb_mark_should_rollback();
+        status = BOOT_STATUS_SWAP;
     } else {
         BOOTLOADER_LOG("Nothing to swap");
         pfb_firmware_commit();
         _pfb_mark_pico_has_no_new_firmware();
+        status = BOOT_STATUS_OK;
     }
 
+
     pfb_mark_download_slot_as_invalid();
+    on_boot_completed(status);
     BOOTLOADER_LOG("End of execution, executing the application...\n");
 
     _disable_interrupts();
