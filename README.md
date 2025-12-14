@@ -154,6 +154,11 @@ void on_bootloader_started(void);
 //   BOOT_STATUS_SWAP      - Firmware swapped
 //   BOOT_STATUS_ROLLBACK  - Rollback performed
 void on_boot_completed(boot_status_t status);
+
+// Called during flash swap operation
+// current_sector - Current sector being swapped (0 to total_sectors-1)
+// total_sectors  - Total number of sectors to swap
+void on_flash_operation_progress(uint32_t current_sector, uint32_t total_sectors);
 ```
 
 If you do not provide custom sources, the bootloader will use default empty handlers.

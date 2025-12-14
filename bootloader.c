@@ -77,6 +77,7 @@ static void swap_images(void) {
     params.swap_buff_from_application_slot = swap_buff_from_application_slot;
 
     for (uint32_t i = 0; i < SWAP_ITERATIONS; i++) {
+        on_flash_operation_progress(i, SWAP_ITERATIONS);
         params.iteration_index = i;
         flash_safe_execute(swap_images_unsafe, &params, UINT32_MAX);
     }
@@ -156,6 +157,10 @@ static void print_welcome_message(void) {
 
 __attribute__((weak)) void on_bootloader_started(void) {}
 __attribute__((weak)) void on_boot_completed(boot_status_t status) { (void)status; }
+__attribute__((weak)) void on_flash_operation_progress(uint32_t current_sector, uint32_t total_sectors) {
+    (void)current_sector;
+    (void)total_sectors;
+}
 
 int main(void) {
     stdio_init_all();
