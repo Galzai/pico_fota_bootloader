@@ -29,6 +29,14 @@ __attribute__((weak)) void on_bootloader_started(void);
  */
 __attribute__((weak)) void on_boot_completed(boot_status_t status);
 
+/**
+ * Optional handler called during flash swap operation.
+ * Define this function in your application to track progress.
+ * @param current_sector Current sector being swapped (0 to total_sectors-1)
+ * @param total_sectors Total number of sectors to swap
+ */
+__attribute__((weak)) void on_flash_operation_progress(uint32_t current_sector, uint32_t total_sectors);
+
 #ifdef __cplusplus
 }
 #endif
