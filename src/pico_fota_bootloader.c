@@ -57,6 +57,26 @@
  #    include <mbedtls/sha256.h>
  #endif // PFB_WITH_SHA256_HASHING
  
+ #ifdef PFB_WITH_SHA256_HASHING
+ #if MBEDTLS_VERSION_MAJOR < 3
+ // mbedtls 2.x used _ret suffix; provide compatibility wrappers for modern API
+ static inline int mbedtls_sha256_starts(mbedtls_sha256_context *ctx, int is224) {
+     return mbedtls_sha256_starts_ret(ctx, is224);
+ }
+ 
+ static inline int mbedtls_sha256_update(mbedtls_sha256_context *ctx,
+                                         const unsigned char *input,
+                                         size_t ilen) {
+     return mbedtls_sha256_update_ret(ctx, input, ilen);
+ }
+ 
+ static inline int mbedtls_sha256_finish(mbedtls_sha256_context *ctx,
+                                         unsigned char output[32]) {
+     return mbedtls_sha256_finish_ret(ctx, output);
+ }
+ #endif // MBEDTLS_VERSION_MAJOR < 3
+ #endif // PFB_WITH_SHA256_HASHING
+ 
  #include <pico_fota_bootloader.h>
  #include "../linker_common/linker_definitions.h"
  
@@ -285,14 +305,14 @@
      mbedtls_sha256_init(&sha256_ctx);
  
      int ret;
-     ret = mbedtls_sha256_starts_ret(&sha256_ctx, 0);
+     ret = mbedtls_sha256_starts(&sha256_ctx, 0);
      if (ret) {
          return ret;
      }
  
      uint32_t image_start_address = PFB_ADDR_AS_U32(__FLASH_DOWNLOAD_SLOT_START);
      size_t image_size_without_sha256 = firmware_size - 256;
-     ret = mbedtls_sha256_update_ret(&sha256_ctx,
+     ret = mbedtls_sha256_update(&sha256_ctx,
                                      (const unsigned char *) image_start_address,
                                      image_size_without_sha256);
      if (ret) {
@@ -300,7 +320,7 @@
      }
  
      unsigned char calculated_sha256[PFB_SHA256_DIGEST_SIZE];
-     ret = mbedtls_sha256_finish_ret(&sha256_ctx, calculated_sha256);
+     ret = mbedtls_sha256_finish(&sha256_ctx, calculated_sha256);
      if (ret) {
          return ret;
      }
