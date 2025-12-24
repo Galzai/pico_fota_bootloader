@@ -78,7 +78,7 @@
  #endif // PFB_WITH_SHA256_HASHING
  
  #include <pico_fota_bootloader.h>
- #include "../linker_definitions.h"
+ #include "../linker_common/linker_definitions.h"
  
  /**
   * Some random values tbh.
