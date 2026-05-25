@@ -1,5 +1,17 @@
 # Raspberry Pi Pico  FOTA Bootloader
 
+---
+### ⚠️ DEPRECATION NOTICE ⚠️
+
+**This fork has been archived.**
+
+With the introduction of the **Raspberry Pi RP2350**, a custom FOTA bootloader like this one is no longer required for my workflow. The RP2350 natively supports flash partitioning and A/B Try-Before-You-Buy (TBYB) functionality directly in its bootrom.
+
+If you are transitioning to the RP2350 and looking to implement OTA updates, see **[Section 5.1.17: Try Before You Buy (TBYB) in the official RP2350 Datasheet](https://datasheets.raspberrypi.com/rp2350/rp2350-datasheet.pdf)** and the `pico_bootrom` APIs (`rom_explicit_buy`) in the Pico SDK. 
+
+The code in this repository will remain up for reference and for developers continuing to build FOTA solutions on older hardware (like the RP2040), but it is no longer actively maintained.
+---
+
 This bootloader allows you to perform secure `Firmware Over The Air (FOTA)`
 OTA updates on `RP2XXX` Boards. It contains all required linker
 scripts that will adapt your application to the new application memory layout.
